@@ -14,9 +14,11 @@ import tempfile
 from pathlib import Path
 
 import requests
+from PIL import Image
 from playwright.async_api import async_playwright, BrowserContext, Page
 
 from bot import config
+from bot.queue import already_posted
 
 log = logging.getLogger(__name__)
 
@@ -52,6 +54,74 @@ def _download_media(url: str, media_type: str) -> Path | None:
     except Exception as exc:
         log.error("Media download failed: %s", exc)
         return None
+
+
+# ── Image processing ─────────────────────────────────────────────────────────
+
+# Instagram aspect ratio limits: 4:5 (portrait) to 1.91:1 (landscape)
+_IG_MAX_SIZE = 1080
+_IG_MIN_RATIO = 4 / 5    # 0.8  (tallest allowed)
+_IG_MAX_RATIO = 1.91     # widest allowed
+
+
+def _prepare_image(path: Path) -> Path:
+    """
+    Resize and crop image for Instagram.
+    - Scale to 1080px on longest side
+    - Crop to valid IG aspect ratio if needed (4:5 to 1.91:1)
+    - Save as high-quality JPEG
+    Returns path to the processed image (may be same file, overwritten).
+    """
+    try:
+        img = Image.open(path)
+
+        # Convert RGBA/P to RGB
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+
+        w, h = img.size
+        ratio = w / h
+
+        # Crop to valid aspect ratio
+        if ratio < _IG_MIN_RATIO:
+            # Too tall — crop height to 4:5
+            new_h = int(w / _IG_MIN_RATIO)
+            top = (h - new_h) // 2
+            img = img.crop((0, top, w, top + new_h))
+            log.info("Cropped tall image: %dx%d → %dx%d", w, h, w, new_h)
+        elif ratio > _IG_MAX_RATIO:
+            # Too wide — crop width to 1.91:1
+            new_w = int(h * _IG_MAX_RATIO)
+            left = (w - new_w) // 2
+            img = img.crop((left, 0, left + new_w, h))
+            log.info("Cropped wide image: %dx%d → %dx%d", w, h, new_w, h)
+
+        # Scale to 1080px on the largest dimension
+        w, h = img.size
+        if max(w, h) > _IG_MAX_SIZE:
+            if w >= h:
+                new_w = _IG_MAX_SIZE
+                new_h = int(h * (_IG_MAX_SIZE / w))
+            else:
+                new_h = _IG_MAX_SIZE
+                new_w = int(w * (_IG_MAX_SIZE / h))
+            img = img.resize((new_w, new_h), Image.LANCZOS)
+            log.info("Resized image to %dx%d", new_w, new_h)
+
+        # Save as high-quality JPEG
+        out_path = path.with_suffix(".jpg")
+        img.save(out_path, "JPEG", quality=95, optimize=True)
+        log.info("Image prepared: %dx%d (%.1f KB)", img.size[0], img.size[1], out_path.stat().st_size / 1024)
+
+        # Remove original if different path
+        if out_path != path and path.exists():
+            path.unlink(missing_ok=True)
+
+        return out_path
+
+    except Exception as exc:
+        log.warning("Image processing failed (using original): %s", exc)
+        return path
 
 
 # ── Browser state ───────────────────────────────────────────────────────────
@@ -278,12 +348,18 @@ async def _post_content(context: BrowserContext, media_path: Path, caption: str)
 async def post_to_instagram(item: dict) -> str:
     """
     Post a queue item to Instagram.
-    Downloads media, creates post, saves state.
+    Downloads media, processes images, creates post, saves state.
     Returns the post URL or empty string on failure.
     """
+    source_url = item.get("source_url", "")
     media_url = item.get("media_url", "")
     media_type = item.get("media_type", "image")
     caption = item.get("generated_caption", "")
+
+    # Pre-post dedup check (belt + suspenders)
+    if already_posted(source_url):
+        log.warning("Pre-post dedup caught duplicate: %s", source_url)
+        return ""
 
     if not caption:
         log.error("No generated caption — cannot post")
@@ -294,6 +370,10 @@ async def post_to_instagram(item: dict) -> str:
     if not media_path:
         log.error("Media download failed — cannot post")
         return ""
+
+    # Process images for proper Instagram sizing
+    if media_type in ("image", "carousel"):
+        media_path = _prepare_image(media_path)
 
     post_url = ""
     try:

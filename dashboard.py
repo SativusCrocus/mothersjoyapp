@@ -48,6 +48,8 @@ _status = "idle"          # idle | busy
 _autopilot_running = False
 _autopilot_thread: threading.Thread | None = None
 _autopilot_stop = threading.Event()
+_last_post_time: float = 0        # timestamp of last autopilot post
+_next_post_time: float = 0        # timestamp of next scheduled post
 
 DEFAULT_ACCOUNT = "mothersjoyapp"
 
@@ -69,12 +71,16 @@ def index():
 @app.route("/api/state")
 def api_state():
     with _file_lock:
+        now = time.time()
+        remaining = max(0, _next_post_time - now) if _autopilot_running and _next_post_time else 0
         return jsonify({
             "queue_size": queue_size(),
             "posted_count": len(get_posted_history()),
             "status": _status,
             "autopilot": _autopilot_running,
             "account": config.get_account_name(),
+            "next_post_in": int(remaining),
+            "post_interval": config.POST_INTERVAL_MINUTES * 60,
         })
 
 
@@ -186,6 +192,7 @@ def api_autopilot():
     if action == "stop" or (action == "toggle" and _autopilot_running):
         _autopilot_stop.set()
         _autopilot_running = False
+        _next_post_time = 0
         log.info("Autopilot stopped")
         return jsonify({"ok": True, "message": "Autopilot stopped", "autopilot": False})
 
@@ -196,7 +203,7 @@ def api_autopilot():
     _autopilot_running = True
 
     def _autopilot_loop():
-        global _autopilot_running
+        global _autopilot_running, _last_post_time, _next_post_time
         interval = config.POST_INTERVAL_MINUTES * 60
         log.info("Autopilot started (interval: %dm)", config.POST_INTERVAL_MINUTES)
 
@@ -268,13 +275,18 @@ def api_autopilot():
                 _set_status("idle")
                 _op_lock.release()
 
-            # Wait for next interval (check stop event every 10s)
-            for _ in range(interval // 10):
+            # Set countdown for next post
+            _last_post_time = time.time()
+            _next_post_time = _last_post_time + interval
+
+            # Wait for next interval (check stop event every 5s)
+            for _ in range(interval // 5):
                 if _autopilot_stop.is_set():
                     break
-                _autopilot_stop.wait(10)
+                _autopilot_stop.wait(5)
 
         _autopilot_running = False
+        _next_post_time = 0
         log.info("Autopilot thread exiting")
 
     _autopilot_thread = threading.Thread(target=_autopilot_loop, daemon=True)

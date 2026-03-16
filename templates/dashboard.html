@@ -232,7 +232,7 @@
   <div class="stat-card"><div class="label">Queue depth</div><div class="value purple" id="statQueue">—</div></div>
   <div class="stat-card"><div class="label">Total posted</div><div class="value green" id="statPosted">—</div></div>
   <div class="stat-card"><div class="label">Bot status</div><div class="value blue" id="statStatus">—</div></div>
-  <div class="stat-card"><div class="label">Autopilot</div><div class="value orange" id="statAutopilot">—</div></div>
+  <div class="stat-card"><div class="label">Next post</div><div class="value orange" id="statCountdown">—</div></div>
 </div>
 
 <div class="controls">
@@ -265,6 +265,7 @@
   let refreshTimer = 8;
   let refreshInterval;
   let logs = [];
+  let nextPostIn = 0; // seconds until next autopilot post
 
   // ── Tabs ───────────────────────────────────
   document.querySelectorAll('.tab').forEach(tab => {
@@ -285,9 +286,12 @@
       document.getElementById('statQueue').textContent = data.queue_size ?? '—';
       document.getElementById('statPosted').textContent = data.posted_count ?? '—';
       document.getElementById('statStatus').textContent = data.status ?? 'idle';
-      document.getElementById('statAutopilot').textContent = data.autopilot ? 'ON' : 'OFF';
 
+      // Countdown timer
       autopilotOn = data.autopilot;
+      nextPostIn = data.next_post_in || 0;
+      updateCountdown();
+
       document.getElementById('btnAutopilot').textContent = autopilotOn ? '🤖 Stop Autopilot' : '🤖 Start Autopilot';
       document.getElementById('btnAutopilot').className = autopilotOn ? 'btn danger' : 'btn';
 
@@ -398,6 +402,25 @@
     refresh();
   }
 
+  // ── Countdown ──────────────────────────────
+  function updateCountdown() {
+    const el = document.getElementById('statCountdown');
+    if (!autopilotOn) {
+      el.textContent = 'OFF';
+      el.className = 'value';
+      return;
+    }
+    if (nextPostIn <= 0) {
+      el.textContent = 'NOW';
+      el.className = 'value green';
+      return;
+    }
+    const m = Math.floor(nextPostIn / 60);
+    const s = nextPostIn % 60;
+    el.textContent = `${m}:${String(s).padStart(2, '0')}`;
+    el.className = 'value orange';
+  }
+
   // ── Helpers ────────────────────────────────
   function escHtml(s) {
     const d = document.createElement('div');
@@ -434,6 +457,13 @@
     refreshInterval = setInterval(() => {
       refreshTimer--;
       document.getElementById('countdown').textContent = `Next refresh: ${refreshTimer}s`;
+
+      // Tick down autopilot countdown
+      if (autopilotOn && nextPostIn > 0) {
+        nextPostIn--;
+        updateCountdown();
+      }
+
       if (refreshTimer <= 0) {
         refresh();
       }
