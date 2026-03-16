@@ -9,18 +9,17 @@ import json
 import logging
 import re
 
-import google.generativeai as genai
+from google import genai
 
 from bot import config
 
 log = logging.getLogger(__name__)
 
-_MODEL = "gemini-1.5-flash"
+_MODEL = "gemini-2.5-flash"
 
 
-def _get_model():
-    genai.configure(api_key=config.get_gemini_key())
-    return genai.GenerativeModel(_MODEL)
+def _get_client():
+    return genai.Client(api_key=config.get_gemini_key())
 
 
 # ── Filter ───────────────────────────────────────────────────────────────────
@@ -68,7 +67,7 @@ def passes_filter(content: dict) -> tuple[bool, int, str]:
     AI-score content for niche fit.
     Returns (passes: bool, score: 1-10, reason: str).
     """
-    model = _get_model()
+    client = _get_client()
 
     prompt = _FILTER_PROMPT.format(
         account=content.get("account", "unknown"),
@@ -78,7 +77,7 @@ def passes_filter(content: dict) -> tuple[bool, int, str]:
     )
 
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model=_MODEL, contents=prompt)
         text = response.text.strip()
 
         # Extract JSON from response (handle markdown code blocks)
@@ -145,7 +144,7 @@ def generate_post(content: dict) -> dict:
     Generate an Instagram post in Mother's Joy voice.
     Returns dict with 'caption' key.
     """
-    model = _get_model()
+    client = _get_client()
 
     prompt = _GENERATE_PROMPT.format(
         account=content.get("account", ""),
@@ -155,7 +154,7 @@ def generate_post(content: dict) -> dict:
     )
 
     try:
-        response = model.generate_content(prompt)
+        response = client.models.generate_content(model=_MODEL, contents=prompt)
         caption = response.text.strip()
 
         # Trim to max length

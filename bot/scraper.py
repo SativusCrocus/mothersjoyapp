@@ -92,9 +92,16 @@ def _extract_posts_from_graphql(data: dict) -> list[dict]:
             node = edge.get("node", {})
             posts.append(_node_to_post(node))
 
-    # Explore / recent media responses (API v1 style)
-    sections = data.get("sections", [])
-    for section in sections:
+    # fbsearch/top_serp style: media_grid.sections[].layout_content.medias[]
+    media_grid = data.get("media_grid", {})
+    for section in media_grid.get("sections", []):
+        medias = section.get("layout_content", {}).get("medias", [])
+        for media_wrapper in medias:
+            media = media_wrapper.get("media", {})
+            posts.append(_api_media_to_post(media))
+
+    # Explore / recent media responses (API v1 style — top-level sections)
+    for section in data.get("sections", []):
         medias = section.get("layout_content", {}).get("medias", [])
         for media_wrapper in medias:
             media = media_wrapper.get("media", {})
@@ -147,7 +154,7 @@ def _api_media_to_post(media: dict) -> dict:
         "source_url": f"https://www.instagram.com/p/{shortcode}/" if shortcode else "",
         "caption": caption,
         "likes": media.get("like_count", 0),
-        "media_type": "video" if media_type == 2 else "image",
+        "media_type": "video" if media_type == 2 else "carousel" if media_type == 8 else "image",
         "media_url": video_url or image_url,
         "taken_at": media.get("taken_at", 0),
     }
@@ -220,7 +227,7 @@ async def _scrape_hashtag(context: BrowserContext, hashtag: str, limit: int) -> 
 
     async def on_response(response):
         url = response.url
-        if not any(k in url for k in ("graphql", "api/v1/tags", "api/v1/feed", "web/explore")):
+        if not any(k in url for k in ("graphql", "api/v1/tags", "api/v1/feed", "web/explore", "fbsearch", "top_serp")):
             return
         try:
             data = await response.json()

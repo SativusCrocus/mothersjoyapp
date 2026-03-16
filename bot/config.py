@@ -101,7 +101,7 @@ MIN_ENGAGEMENT = 0.02          # likes / followers ratio
 MAX_AGE_DAYS = 7               # ignore posts older than this
 SEARCH_PER_NICHE = 10          # max posts to fetch per niche term
 MIN_CAPTION_LENGTH = 50        # skip stubs / low-effort captions
-SCRAPE_HOURS_BACK = 48         # only scrape posts this recent
+SCRAPE_HOURS_BACK = 720        # only scrape posts this recent (30 days)
 
 # ── Queue behaviour ──────────────────────────────────────────────────────────
 
