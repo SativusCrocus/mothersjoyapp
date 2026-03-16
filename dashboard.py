@@ -139,6 +139,7 @@ def api_post():
         return jsonify({"ok": False, "message": "Another operation is in progress"}), 409
 
     def _do_post():
+        item = None
         try:
             _set_status("busy")
 
@@ -159,9 +160,14 @@ def api_post():
                     mark_posted(source_url, post_url)
                 log.info("Dashboard: posted → %s", post_url)
             else:
-                log.error("Dashboard: posting failed for %s", source_url)
+                log.error("Dashboard: posting failed for %s — re-enqueuing", source_url)
+                with _file_lock:
+                    enqueue(item)
         except Exception as exc:
             log.error("Post error: %s", exc)
+            if item:
+                with _file_lock:
+                    enqueue(item)
         finally:
             _set_status("idle")
             _op_lock.release()
@@ -250,7 +256,9 @@ def api_autopilot():
                             mark_posted(source_url, post_url)
                         log.info("Autopilot: posted → %s", post_url)
                     else:
-                        log.error("Autopilot: posting failed for %s", source_url)
+                        log.error("Autopilot: posting failed for %s — re-enqueuing", source_url)
+                        with _file_lock:
+                            enqueue(item)
                 else:
                     log.warning("Autopilot: queue empty — skipping post")
 

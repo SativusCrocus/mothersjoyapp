@@ -1,9 +1,9 @@
 """
-Instagram posting via Playwright (headless Chromium).
+Instagram posting via Playwright (headless Chromium, desktop mode).
 
-Loads browser state from cookies, uploads media, types caption,
-intercepts the CreatePost API response for the post ID, and
-saves updated browser state.
+Loads browser state from cookies, opens create modal via sidebar,
+uploads media, types caption, clicks Share, and extracts the post ID
+from API interception or profile fallback.
 """
 
 import asyncio
@@ -19,6 +19,14 @@ from playwright.async_api import async_playwright, BrowserContext, Page
 from bot import config
 
 log = logging.getLogger(__name__)
+
+# Desktop browser config — Instagram only shows the create button on desktop
+_VIEWPORT = {"width": 1280, "height": 900}
+_USER_AGENT = (
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Safari/537.36"
+)
 
 
 # ── Media download ───────────────────────────────────────────────────────────
@@ -79,7 +87,7 @@ def _build_storage_state(cookies_path: Path) -> dict:
 
 
 async def _create_context(playwright) -> BrowserContext:
-    """Launch headless Chromium with saved Instagram session."""
+    """Launch headless Chromium with saved Instagram session (desktop mode)."""
     browser = await playwright.chromium.launch(headless=True)
 
     storage = _build_storage_state(config.get_cookies_path())
@@ -88,12 +96,8 @@ async def _create_context(playwright) -> BrowserContext:
 
     context = await browser.new_context(
         storage_state=str(tmp_state),
-        viewport={"width": 430, "height": 932},
-        user_agent=(
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) "
-            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
-            "Version/17.0 Mobile/15E148 Safari/604.1"
-        ),
+        viewport=_VIEWPORT,
+        user_agent=_USER_AGENT,
     )
 
     tmp_state.unlink(missing_ok=True)
@@ -109,27 +113,22 @@ async def _save_state(context: BrowserContext):
 
 # ── Post creation ────────────────────────────────────────────────────────────
 
-async def _type_with_delay(page: Page, selector: str, text: str, delay: int = 35):
-    """Type text character by character with human-like delay."""
-    element = await page.wait_for_selector(selector, timeout=10000)
-    if element:
-        await element.click()
-        await page.keyboard.type(text, delay=delay)
-
-
 async def _post_content(context: BrowserContext, media_path: Path, caption: str) -> str:
     """
-    Create an Instagram post.
+    Create an Instagram post via the desktop web UI.
     Returns the post URL if successful, empty string on failure.
     """
     page = await context.new_page()
     post_id = ""
 
-    # Intercept CreatePost / media_publish API response
+    # Intercept CreatePost API response
     async def on_response(response):
         nonlocal post_id
         url = response.url
-        if any(k in url for k in ("create/configure", "media/configure", "media_publish")):
+        if any(k in url for k in (
+            "create/configure", "media/configure", "media_publish",
+            "configure_to_igtv", "configure_sidecar",
+        )):
             try:
                 data = await response.json()
                 media = data.get("media", {})
@@ -144,96 +143,102 @@ async def _post_content(context: BrowserContext, media_path: Path, caption: str)
 
     try:
         # 1. Navigate to Instagram
-        log.info("Opening Instagram...")
+        log.info("Opening Instagram (desktop)...")
         await page.goto("https://www.instagram.com/", wait_until="domcontentloaded", timeout=30000)
-        await page.wait_for_timeout(3000)
+        await page.wait_for_timeout(4000)
 
-        # Dismiss any modals / "Turn on Notifications" popups
-        for dismiss_text in ["Not Now", "Cancel", "Dismiss"]:
+        # Dismiss popups (notifications, cookies, etc.)
+        for dismiss_text in ["Not Now", "Decline", "Cancel", "Dismiss"]:
             btn = page.get_by_text(dismiss_text, exact=True)
             if await btn.count() > 0:
                 await btn.first.click()
                 await page.wait_for_timeout(1000)
 
-        # 2. Click new post button
-        log.info("Looking for new post button...")
-        new_post_btn = None
-
-        # Try multiple selectors for the create/new post button
-        selectors = [
-            '[data-testid="new-post-button"]',
-            '[aria-label="New post"]',
-            '[aria-label="New Post"]',
-            'svg[aria-label="New post"]',
-            'svg[aria-label="New Post"]',
-            '[aria-label="Create"]',
-        ]
-
-        for sel in selectors:
-            try:
-                el = page.locator(sel)
-                if await el.count() > 0:
-                    new_post_btn = el.first
-                    break
-            except Exception:
-                continue
-
-        if not new_post_btn:
-            # Fallback: look for the "+" icon in nav
-            plus_links = page.locator('a[href="/create/style/"]')
-            if await plus_links.count() > 0:
-                new_post_btn = plus_links.first
-
-        if not new_post_btn:
-            log.error("Could not find new post button")
+        # 2. Open create modal: click "New post" SVG in sidebar
+        log.info("Opening create modal...")
+        new_post_svg = page.locator('svg[aria-label="New post"]')
+        if await new_post_svg.count() == 0:
+            log.error("Could not find 'New post' SVG in sidebar")
             return ""
 
-        await new_post_btn.click()
-        await page.wait_for_timeout(2000)
+        await new_post_svg.first.click()
+        await page.wait_for_timeout(1500)
 
-        # 3. Upload media file
+        # 3. Click "Post" from the expanded submenu
+        log.info("Clicking 'Post' submenu...")
+        post_submenu = page.get_by_text("Post", exact=True)
+        if await post_submenu.count() > 0:
+            await post_submenu.first.click()
+            await page.wait_for_timeout(2000)
+        else:
+            log.warning("No 'Post' submenu found — modal may have opened directly")
+
+        # 4. Upload media file via the hidden file input
         log.info("Uploading media: %s", media_path.name)
-
-        # Wait for file input and set the file
         file_input = page.locator('input[type="file"]')
-        await file_input.wait_for(timeout=10000)
-        await file_input.set_input_files(str(media_path))
+        try:
+            await file_input.wait_for(timeout=5000)
+            await file_input.set_input_files(str(media_path))
+        except Exception:
+            # Fallback: click "Select from computer" first
+            select_btn = page.get_by_text("Select from computer")
+            if await select_btn.count() > 0:
+                async with page.expect_file_chooser() as fc_info:
+                    await select_btn.first.click()
+                file_chooser = await fc_info.value
+                await file_chooser.set_files(str(media_path))
+            else:
+                log.error("Could not find file input or 'Select from computer' button")
+                return ""
+
         await page.wait_for_timeout(3000)
 
-        # 4. Skip crop / filter steps — click Next/Continue
-        for _ in range(3):
-            for next_text in ["Next", "Continue"]:
-                btn = page.get_by_role("button", name=next_text)
-                if await btn.count() > 0:
-                    await btn.first.click()
-                    await page.wait_for_timeout(1500)
-                    break
+        # 5. Click Next through crop → filter → caption steps
+        for step in range(3):
+            next_btn = page.get_by_role("button", name="Next")
+            if await next_btn.count() > 0:
+                log.info("Clicking Next (step %d)...", step + 1)
+                await next_btn.first.click()
+                await page.wait_for_timeout(2000)
 
-        # 5. Type caption
+        # 6. Type caption
         log.info("Typing caption (%d chars)...", len(caption))
-        caption_area = page.locator('[aria-label="Write a caption..."], [aria-label="Write a caption…"], textarea, [contenteditable="true"]')
+        caption_area = page.locator(
+            '[aria-label="Write a caption..."], '
+            '[aria-label="Write a caption…"], '
+            'div[contenteditable="true"], '
+            'textarea'
+        )
 
         if await caption_area.count() > 0:
             await caption_area.first.click()
             await page.wait_for_timeout(500)
-            await page.keyboard.type(caption, delay=15)
+            await page.keyboard.type(caption, delay=10)
+            log.info("Caption typed successfully")
         else:
             log.warning("Could not find caption input — posting without caption")
 
         await page.wait_for_timeout(1000)
 
-        # 6. Click Share / Post
+        # 7. Click Share
         log.info("Clicking Share...")
-        for share_text in ["Share", "Post"]:
-            btn = page.get_by_role("button", name=share_text)
-            if await btn.count() > 0:
-                await btn.first.click()
-                break
+        share_btn = page.get_by_role("button", name="Share")
+        if await share_btn.count() > 0:
+            await share_btn.first.click()
+        else:
+            # Fallback: look for div with Share text
+            share_div = page.locator('div:text-is("Share")')
+            if await share_div.count() > 0:
+                await share_div.first.click()
+            else:
+                log.error("Could not find Share button")
+                return ""
 
-        # Wait for the post to be created
-        await page.wait_for_timeout(8000)
+        # Wait for the post to be created (spinner + confirmation)
+        log.info("Waiting for post to be created...")
+        await page.wait_for_timeout(12000)
 
-        # 7. Fallback: extract post ID from profile if not intercepted
+        # 8. Fallback: extract post ID from profile if not intercepted
         if not post_id:
             log.info("Post ID not intercepted — checking profile for latest post")
             try:
@@ -246,7 +251,7 @@ async def _post_content(context: BrowserContext, media_path: Path, caption: str)
                     )
                     await page.wait_for_timeout(3000)
 
-                    # Get first post link
+                    # Get first post link from profile grid
                     post_links = page.locator('a[href*="/p/"]')
                     if await post_links.count() > 0:
                         href = await post_links.first.get_attribute("href")
