@@ -1,0 +1,178 @@
+"""
+Gemini AI filtering and caption generation.
+
+passes_filter()  — scores content 1-10 for niche fit.
+generate_post()  — rewrites caption in Mother's Joy warm village voice.
+"""
+
+import json
+import logging
+import re
+
+import google.generativeai as genai
+
+from bot import config
+
+log = logging.getLogger(__name__)
+
+_MODEL = "gemini-1.5-flash"
+
+
+def _get_model():
+    genai.configure(api_key=config.get_gemini_key())
+    return genai.GenerativeModel(_MODEL)
+
+
+# ── Filter ───────────────────────────────────────────────────────────────────
+
+_FILTER_PROMPT = """\
+You are a content curator for Mother's Joy — a warm, supportive parenting community \
+(mothersjoy.app). We share gentle, positive parenting content that feels like advice \
+from a wise, reassuring friend. Our audience: UK parents (especially new mums), \
+postnatal wellness, gentle parenting, baby/toddler tips.
+
+Evaluate this Instagram post for our feed. Score 1-10 and decide PASS or FAIL.
+
+PASS criteria (score ≥ 6):
+- Warm, positive, supportive parenting content
+- Practical tips for parents (sleep, feeding, milestones, self-care)
+- Emotional support, reassurance, "you're doing great" energy
+- Gentle/respectful parenting philosophy
+- Postnatal wellness, mum mental health
+- UK-relevant content preferred but not required
+
+FAIL criteria (any = automatic fail):
+- Advertisements, product promotions, discount codes
+- Controversial / judgmental / "mommy wars" content
+- Medical advice that could be harmful
+- Political content
+- Sexually explicit or violent content
+- Low effort / engagement bait / rage bait
+- Content targeting older children (teens+)
+
+Post to evaluate:
+---
+Account: {account}
+Caption: {caption}
+Likes: {likes}
+Media type: {media_type}
+---
+
+Respond in EXACTLY this JSON format, nothing else:
+{{"pass": true/false, "score": 1-10, "reason": "one sentence explanation"}}
+"""
+
+
+def passes_filter(content: dict) -> tuple[bool, int, str]:
+    """
+    AI-score content for niche fit.
+    Returns (passes: bool, score: 1-10, reason: str).
+    """
+    model = _get_model()
+
+    prompt = _FILTER_PROMPT.format(
+        account=content.get("account", "unknown"),
+        caption=content.get("caption", "")[:1500],
+        likes=content.get("likes", 0),
+        media_type=content.get("media_type", "image"),
+    )
+
+    try:
+        response = model.generate_content(prompt)
+        text = response.text.strip()
+
+        # Extract JSON from response (handle markdown code blocks)
+        json_match = re.search(r"\{.*\}", text, re.DOTALL)
+        if not json_match:
+            log.warning("AI filter returned non-JSON: %s", text[:200])
+            return False, 0, "Failed to parse AI response"
+
+        result = json.loads(json_match.group())
+        passes = bool(result.get("pass", False))
+        score = int(result.get("score", 0))
+        reason = str(result.get("reason", ""))
+
+        log.info("AI filter: %s (score=%d) — %s", "PASS" if passes else "FAIL", score, reason)
+        return passes, score, reason
+
+    except Exception as exc:
+        log.error("AI filter error: %s", exc)
+        return False, 0, f"AI error: {exc}"
+
+
+# ── Caption generation ───────────────────────────────────────────────────────
+
+_GENERATE_PROMPT = """\
+You are the voice of Mother's Joy — a warm parenting community at mothersjoy.app.
+
+Rewrite this Instagram post caption in our brand voice. Rules:
+
+VOICE:
+- Warm, reassuring, like a wise friend sitting with you over tea 💜
+- Gentle encouragement — "you're doing beautifully", "it's okay to rest"
+- Simple language, no jargon, no lecturing
+- Speak TO the parent, not AT them
+- British English spelling (mum, nappies, cot, etc.)
+
+FORMAT:
+- Opening hook (1 engaging line, can use emoji sparingly 💜🌱✨)
+- 2-4 short paragraphs of warm, practical content
+- Encouraging sign-off
+- Line break then: 🌿 More support → mothersjoy.app
+- Line break then: 5-8 relevant hashtags (mix popular + niche)
+
+RULES:
+- Under {max_chars} characters total
+- No medical claims, no "you should/must", no guilt
+- Credit original creator naturally if account name is provided
+- Include 💜 at least once — it's our signature
+- Do NOT copy the original caption — rewrite entirely in our voice
+- Hashtags must include #mothersjoy
+
+Original post:
+---
+Account: @{account}
+Caption: {caption}
+Media type: {media_type}
+---
+
+Write the new caption now (just the caption text, no extra commentary):
+"""
+
+
+def generate_post(content: dict) -> dict:
+    """
+    Generate an Instagram post in Mother's Joy voice.
+    Returns dict with 'caption' key.
+    """
+    model = _get_model()
+
+    prompt = _GENERATE_PROMPT.format(
+        account=content.get("account", ""),
+        caption=content.get("caption", "")[:1500],
+        media_type=content.get("media_type", "image"),
+        max_chars=config.MAX_CAPTION_LENGTH,
+    )
+
+    try:
+        response = model.generate_content(prompt)
+        caption = response.text.strip()
+
+        # Trim to max length
+        if len(caption) > config.MAX_CAPTION_LENGTH:
+            caption = caption[: config.MAX_CAPTION_LENGTH - 3] + "..."
+
+        # Ensure mothersjoy.app link is present
+        if config.BRAND_LINK not in caption:
+            caption += f"\n\n🌿 More support → {config.BRAND_LINK}"
+
+        # Ensure #mothersjoy hashtag
+        if "#mothersjoy" not in caption.lower():
+            caption += " #mothersjoy"
+
+        log.info("Generated caption (%d chars) for %s", len(caption), content.get("source_url"))
+        return {"caption": caption}
+
+    except Exception as exc:
+        log.error("Caption generation error: %s", exc)
+        return {"caption": ""}

@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mother's Joy 💜 Dashboard</title>
+  <style>
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --surface2: #22222e;
+      --border: #2a2a3a;
+      --text: #e4e4ef;
+      --text-dim: #8888a0;
+      --purple: #9b59b6;
+      --purple-dim: #7b4a96;
+      --green: #2ecc71;
+      --orange: #f39c12;
+      --red: #e74c3c;
+      --blue: #3498db;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    .header {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 1.2rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 { font-size: 1.3rem; font-weight: 600; }
+    .header h1 span { color: var(--purple); }
+    .header-status {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 4px;
+    }
+    .status-dot.active { background: var(--green); }
+    .status-dot.idle { background: var(--text-dim); }
+
+    /* ── Stats Bar ──────────────────────────── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 1rem;
+      padding: 1.5rem 2rem;
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+    }
+    .stat-card .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-dim);
+      margin-bottom: 0.3rem;
+    }
+    .stat-card .value {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+    .stat-card .value.purple { color: var(--purple); }
+    .stat-card .value.green { color: var(--green); }
+    .stat-card .value.blue { color: var(--blue); }
+    .stat-card .value.orange { color: var(--orange); }
+
+    /* ── Controls ────────────────────────────── */
+    .controls {
+      padding: 0 2rem 1rem;
+      display: flex;
+      gap: 0.8rem;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 0.6rem 1.4rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn:hover { background: var(--surface2); border-color: var(--purple-dim); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+    .btn.primary:hover { background: var(--purple-dim); }
+    .btn.danger { border-color: var(--red); color: var(--red); }
+
+    /* ── Tabs ────────────────────────────────── */
+    .tabs {
+      display: flex;
+      gap: 0;
+      padding: 0 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .tab {
+      padding: 0.7rem 1.4rem;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.2s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--purple); border-bottom-color: var(--purple); }
+
+    /* ── Content ─────────────────────────────── */
+    .content { padding: 1.5rem 2rem; }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Queue cards ─────────────────────────── */
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: var(--purple-dim); }
+    .card-img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      background: var(--surface2);
+    }
+    .card-body { padding: 1rem; }
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-bottom: 0.5rem;
+    }
+    .card-caption {
+      font-size: 0.82rem;
+      line-height: 1.5;
+      color: var(--text);
+      max-height: 120px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+    .card-score {
+      display: inline-block;
+      background: var(--purple);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 10px;
+    }
+
+    /* ── History table ───────────────────────── */
+    .history-list { list-style: none; }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 0.5rem;
+      font-size: 0.85rem;
+    }
+    .history-item a { color: var(--purple); text-decoration: none; }
+    .history-item a:hover { text-decoration: underline; }
+    .history-time { color: var(--text-dim); font-size: 0.75rem; }
+
+    /* ── Logs ────────────────────────────────── */
+    .log-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      max-height: 500px;
+      overflow-y: auto;
+      color: var(--text-dim);
+      white-space: pre-wrap;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-dim);
+      font-size: 0.9rem;
+    }
+
+    /* ── Countdown ───────────────────────────── */
+    .countdown {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🌱 Mother's <span>Joy</span> 💜</h1>
+  <div class="header-status">
+    <span class="countdown" id="countdown">Next refresh: 8s</span>
+    <span><span class="status-dot" id="statusDot"></span><span id="statusText">Loading...</span></span>
+  </div>
+</div>
+
+<div class="stats" id="stats">
+  <div class="stat-card"><div class="label">Queue depth</div><div class="value purple" id="statQueue">—</div></div>
+  <div class="stat-card"><div class="label">Total posted</div><div class="value green" id="statPosted">—</div></div>
+  <div class="stat-card"><div class="label">Bot status</div><div class="value blue" id="statStatus">—</div></div>
+  <div class="stat-card"><div class="label">Autopilot</div><div class="value orange" id="statAutopilot">—</div></div>
+</div>
+
+<div class="controls">
+  <button class="btn primary" onclick="doScrape()" id="btnScrape">🔍 Scrape Now</button>
+  <button class="btn" onclick="doPost()" id="btnPost">📤 Post One</button>
+  <button class="btn" onclick="toggleAutopilot()" id="btnAutopilot">🤖 Start Autopilot</button>
+</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="queue">Queue</div>
+  <div class="tab" data-tab="history">History</div>
+  <div class="tab" data-tab="logs">Logs</div>
+</div>
+
+<div class="content">
+  <div class="tab-panel active" id="panel-queue">
+    <div class="cards" id="queueCards"></div>
+  </div>
+  <div class="tab-panel" id="panel-history">
+    <ul class="history-list" id="historyList"></ul>
+  </div>
+  <div class="tab-panel" id="panel-logs">
+    <div class="log-box" id="logBox">Waiting for logs...</div>
+  </div>
+</div>
+
+<script>
+  const API = '';
+  let autopilotOn = false;
+  let refreshTimer = 8;
+  let refreshInterval;
+  let logs = [];
+
+  // ── Tabs ───────────────────────────────────
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('panel-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ── Data fetching ──────────────────────────
+  async function fetchState() {
+    try {
+      const res = await fetch(API + '/api/state');
+      const data = await res.json();
+
+      document.getElementById('statQueue').textContent = data.queue_size ?? '—';
+      document.getElementById('statPosted').textContent = data.posted_count ?? '—';
+      document.getElementById('statStatus').textContent = data.status ?? 'idle';
+      document.getElementById('statAutopilot').textContent = data.autopilot ? 'ON' : 'OFF';
+
+      autopilotOn = data.autopilot;
+      document.getElementById('btnAutopilot').textContent = autopilotOn ? '🤖 Stop Autopilot' : '🤖 Start Autopilot';
+      document.getElementById('btnAutopilot').className = autopilotOn ? 'btn danger' : 'btn';
+
+      const dot = document.getElementById('statusDot');
+      dot.className = 'status-dot ' + (data.status === 'busy' ? 'active' : 'idle');
+      document.getElementById('statusText').textContent = data.status === 'busy' ? 'Working...' : 'Ready';
+
+      // Enable/disable buttons
+      const busy = data.status === 'busy';
+      document.getElementById('btnScrape').disabled = busy;
+      document.getElementById('btnPost').disabled = busy;
+    } catch (e) {
+      console.error('State fetch failed:', e);
+    }
+  }
+
+  async function fetchQueue() {
+    try {
+      const res = await fetch(API + '/api/queue');
+      const items = await res.json();
+      const container = document.getElementById('queueCards');
+
+      if (!items.length) {
+        container.innerHTML = '<div class="empty-state">Queue is empty — hit Scrape to discover content 🌱</div>';
+        return;
+      }
+
+      container.innerHTML = items.map(item => `
+        <div class="card">
+          ${item.media_url ? `<img class="card-img" src="${escHtml(item.media_url)}" alt="" loading="lazy" onerror="this.style.display='none'">` : ''}
+          <div class="card-body">
+            <div class="card-meta">
+              <span>@${escHtml(item.account || '?')}</span>
+              <span>❤️ ${item.likes ?? 0} ${item.ai_score ? `<span class="card-score">${item.ai_score}/10</span>` : ''}</span>
+            </div>
+            <div class="card-caption">${escHtml((item.generated_caption || item.caption || '').slice(0, 300))}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch (e) {
+      console.error('Queue fetch failed:', e);
+    }
+  }
+
+  async function fetchHistory() {
+    try {
+      const res = await fetch(API + '/api/history');
+      const items = await res.json();
+      const container = document.getElementById('historyList');
+
+      if (!items.length) {
+        container.innerHTML = '<div class="empty-state">No posts yet — the journey begins 💜</div>';
+        return;
+      }
+
+      container.innerHTML = items.reverse().map(item => `
+        <li class="history-item">
+          <div>
+            <a href="${escHtml(item.post_link || item.source_url)}" target="_blank" rel="noopener">${escHtml(item.source_url)}</a>
+          </div>
+          <span class="history-time">${timeAgo(item.posted_at)}</span>
+        </li>
+      `).join('');
+    } catch (e) {
+      console.error('History fetch failed:', e);
+    }
+  }
+
+  // ── Actions ────────────────────────────────
+  async function doScrape() {
+    addLog('Starting scrape...');
+    try {
+      const res = await fetch(API + '/api/scrape', { method: 'POST' });
+      const data = await res.json();
+      addLog(data.message || 'Scrape triggered');
+    } catch (e) {
+      addLog('Scrape error: ' + e.message);
+    }
+    refresh();
+  }
+
+  async function doPost() {
+    addLog('Posting one item...');
+    try {
+      const res = await fetch(API + '/api/post', { method: 'POST' });
+      const data = await res.json();
+      addLog(data.message || 'Post triggered');
+    } catch (e) {
+      addLog('Post error: ' + e.message);
+    }
+    refresh();
+  }
+
+  async function toggleAutopilot() {
+    const action = autopilotOn ? 'stop' : 'start';
+    addLog(`Autopilot: ${action}...`);
+    try {
+      const res = await fetch(API + '/api/autopilot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action })
+      });
+      const data = await res.json();
+      addLog(data.message || `Autopilot ${action}`);
+    } catch (e) {
+      addLog('Autopilot error: ' + e.message);
+    }
+    refresh();
+  }
+
+  // ── Helpers ────────────────────────────────
+  function escHtml(s) {
+    const d = document.createElement('div');
+    d.textContent = s || '';
+    return d.innerHTML;
+  }
+
+  function timeAgo(iso) {
+    if (!iso) return '';
+    const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  }
+
+  function addLog(msg) {
+    const ts = new Date().toLocaleTimeString();
+    logs.push(`[${ts}] ${msg}`);
+    if (logs.length > 200) logs.shift();
+    document.getElementById('logBox').textContent = logs.join('\n');
+    const box = document.getElementById('logBox');
+    box.scrollTop = box.scrollHeight;
+  }
+
+  // ── Refresh loop ───────────────────────────
+  async function refresh() {
+    await Promise.all([fetchState(), fetchQueue(), fetchHistory()]);
+    refreshTimer = 8;
+  }
+
+  function startRefreshLoop() {
+    refresh();
+    refreshInterval = setInterval(() => {
+      refreshTimer--;
+      document.getElementById('countdown').textContent = `Next refresh: ${refreshTimer}s`;
+      if (refreshTimer <= 0) {
+        refresh();
+      }
+    }, 1000);
+  }
+
+  startRefreshLoop();
+</script>
+</body>
+</html>

@@ -1,0 +1,80 @@
+name: Mother's Joy Bot
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      account:
+        description: "Account name"
+        required: true
+        default: "mothersjoyapp"
+
+concurrency:
+  group: ${{ github.repository }}-bot-post
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Restore cache
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            accounts/${{ inputs.account || 'mothersjoyapp' }}/queue.json
+            accounts/${{ inputs.account || 'mothersjoyapp' }}/posted_content.json
+            accounts/${{ inputs.account || 'mothersjoyapp' }}/playwright_state.json
+          key: bot-state-${{ inputs.account || 'mothersjoyapp' }}-${{ github.run_id }}
+          restore-keys: |
+            bot-state-${{ inputs.account || 'mothersjoyapp' }}-
+
+      - name: Restore cookies from secret
+        run: |
+          ACCOUNT="${{ inputs.account || 'mothersjoyapp' }}"
+          mkdir -p "accounts/${ACCOUNT}"
+          echo "${{ secrets.INSTAGRAM_COOKIES_B64 }}" | base64 -d > "accounts/${ACCOUNT}/cookies.json"
+          echo "Cookies restored for ${ACCOUNT}"
+
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium --with-deps
+
+      - name: Run bot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          INSTAGRAM_USERNAME: ${{ secrets.INSTAGRAM_USERNAME }}
+          INSTAGRAM_PASSWORD: ${{ secrets.INSTAGRAM_PASSWORD }}
+        run: |
+          python main.py --account "${{ inputs.account || 'mothersjoyapp' }}"
+
+      - name: Save cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            accounts/${{ inputs.account || 'mothersjoyapp' }}/queue.json
+            accounts/${{ inputs.account || 'mothersjoyapp' }}/posted_content.json
+            accounts/${{ inputs.account || 'mothersjoyapp' }}/playwright_state.json
+          key: bot-state-${{ inputs.account || 'mothersjoyapp' }}-${{ github.run_id }}
+
+      - name: Log state
+        if: always()
+        run: |
+          ACCOUNT="${{ inputs.account || 'mothersjoyapp' }}"
+          echo "=== Queue ==="
+          cat "accounts/${ACCOUNT}/queue.json" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Items: {len(d)}')" || echo "No queue file"
+          echo "=== Posted ==="
+          cat "accounts/${ACCOUNT}/posted_content.json" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(f'Total: {len(d)}')" || echo "No posted file"
