@@ -83,23 +83,34 @@ def get_instagram_password() -> str:
 # ── Niche search terms ───────────────────────────────────────────────────────
 
 NICHES = [
-    "UK parenting tips",
+    # General parenting (race-neutral)
+    "gentle parenting",
+    "motherhood journey",
     "newborn support",
     "postnatal wellness",
-    "gentle parenting",
-    "mum life UK",
-    "baby tips UK",
-    "motherhood journey",
     "parenting community",
-    "new mum advice",
     "toddler parenting",
-    # Diverse parenting communities
-    "black mums UK",
-    "south asian parenting",
-    "multicultural family",
-    "mixed race family UK",
-    "diverse parenting",
-    "parenting of colour",
+    # Black parenting creators
+    "black mum life",
+    "black motherhood",
+    "black mom joy",
+    "melanin mama",
+    "black british mums",
+    # South Asian / Asian parenting
+    "asian mum life",
+    "desi parenting",
+    "brown mums",
+    "south asian motherhood",
+    # Mixed / multicultural families
+    "mixed race family",
+    "multicultural parenting",
+    "interracial family",
+    "diverse families",
+    # General UK mum life
+    "mum life UK",
+    "new mum advice",
+    "baby tips UK",
+    "UK parenting tips",
 ]
 
 # ── Engagement & quality filters ─────────────────────────────────────────────

@@ -8,6 +8,7 @@ post data, then filters by engagement, age, blocked lists, and caption quality.
 import asyncio
 import json
 import logging
+import random
 import re
 import time
 from datetime import datetime, timezone
@@ -311,8 +312,9 @@ async def discover_content(niches: list[str] | None = None) -> list[dict]:
             seen.add(url)
             deduped.append(p)
 
-    # Sort by engagement (likes descending)
-    deduped.sort(key=lambda p: p.get("likes", 0), reverse=True)
+    # Shuffle instead of sorting by likes — engagement sorting biases toward
+    # large homogeneous accounts and suppresses diverse smaller creators
+    random.shuffle(deduped)
 
     log.info("Discovery complete: %d posts after filters (from %d raw)", len(deduped), len(all_posts))
     return deduped
