@@ -161,19 +161,32 @@ def api_post():
 
             post_url = post_to_instagram_sync(item)
 
-            if post_url:
+            if post_url and post_url not in ("", "SKIP"):
                 with _file_lock:
                     mark_posted(source_url, post_url)
                 log.info("Dashboard: posted → %s", post_url)
+            elif post_url == "SKIP":
+                log.warning("Dashboard: skipping %s — unrecoverable (expired URL / no caption)", source_url)
+                # Don't re-enqueue — the media URL is dead
             else:
-                log.error("Dashboard: posting failed for %s — re-enqueuing", source_url)
-                with _file_lock:
-                    enqueue(item)
+                retries = item.get("retry_count", 0) + 1
+                if retries >= 3:
+                    log.error("Dashboard: giving up on %s after %d retries", source_url, retries)
+                else:
+                    log.error("Dashboard: posting failed for %s — re-enqueuing (retry %d/3)", source_url, retries)
+                    item["retry_count"] = retries
+                    with _file_lock:
+                        enqueue(item)
         except Exception as exc:
             log.error("Post error: %s", exc)
             if item:
-                with _file_lock:
-                    enqueue(item)
+                retries = item.get("retry_count", 0) + 1
+                if retries < 3:
+                    item["retry_count"] = retries
+                    with _file_lock:
+                        enqueue(item)
+                else:
+                    log.error("Dashboard: giving up on %s after %d retries", item.get("source_url"), retries)
         finally:
             _set_status("idle")
             _op_lock.release()
@@ -254,18 +267,25 @@ def api_autopilot():
 
                 if item:
                     source_url = item.get("source_url", "")
-                    log.info("Autopilot: posting %s", source_url)
+                    log.info("Autopilot: posting %s (%s)", source_url, item.get("media_type", "image"))
 
                     post_url = post_to_instagram_sync(item)
 
-                    if post_url:
+                    if post_url and post_url not in ("", "SKIP"):
                         with _file_lock:
                             mark_posted(source_url, post_url)
                         log.info("Autopilot: posted → %s", post_url)
+                    elif post_url == "SKIP":
+                        log.warning("Autopilot: skipping %s — unrecoverable (expired URL / no caption)", source_url)
                     else:
-                        log.error("Autopilot: posting failed for %s — re-enqueuing", source_url)
-                        with _file_lock:
-                            enqueue(item)
+                        retries = item.get("retry_count", 0) + 1
+                        if retries >= 3:
+                            log.error("Autopilot: giving up on %s after %d retries", source_url, retries)
+                        else:
+                            log.error("Autopilot: posting failed for %s — re-enqueuing (retry %d/3)", source_url, retries)
+                            item["retry_count"] = retries
+                            with _file_lock:
+                                enqueue(item)
                 else:
                     log.warning("Autopilot: queue empty — skipping post")
 

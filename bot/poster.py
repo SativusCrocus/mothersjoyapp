@@ -183,11 +183,13 @@ async def _save_state(context: BrowserContext):
 
 # ── Post creation ────────────────────────────────────────────────────────────
 
-async def _post_content(context: BrowserContext, media_path: Path, caption: str) -> str:
+async def _post_content(context: BrowserContext, media_path: Path, caption: str,
+                        media_type: str = "image") -> str:
     """
     Create an Instagram post via the desktop web UI.
     Returns the post URL if successful, empty string on failure.
     """
+    is_video = media_type == "video"
     page = await context.new_page()
     post_id = ""
 
@@ -198,6 +200,8 @@ async def _post_content(context: BrowserContext, media_path: Path, caption: str)
         if any(k in url for k in (
             "create/configure", "media/configure", "media_publish",
             "configure_to_igtv", "configure_sidecar",
+            "configure_to_clips",   # Reels endpoint
+            "clip/create",          # Reels alt endpoint
         )):
             try:
                 data = await response.json()
@@ -261,15 +265,45 @@ async def _post_content(context: BrowserContext, media_path: Path, caption: str)
                 log.error("Could not find file input or 'Select from computer' button")
                 return ""
 
-        await page.wait_for_timeout(3000)
+        # Wait for media to be processed (videos need much longer)
+        upload_wait = 15000 if is_video else 3000
+        log.info("Waiting %ds for %s processing...", upload_wait // 1000, media_type)
+        await page.wait_for_timeout(upload_wait)
+
+        # Handle "Videos will be shared as reels" or similar dialogs
+        if is_video:
+            for dismiss_text in ["OK", "Continue", "Got it", "Not Now"]:
+                try:
+                    btn = page.get_by_role("button", name=dismiss_text)
+                    if await btn.count() > 0:
+                        log.info("Dismissing video dialog: '%s'", dismiss_text)
+                        await btn.first.click()
+                        await page.wait_for_timeout(1500)
+                except Exception:
+                    pass
 
         # 5. Click Next through crop → filter → caption steps
+        #    Wait for button to appear instead of silently skipping (critical for videos)
         for step in range(3):
             next_btn = page.get_by_role("button", name="Next")
-            if await next_btn.count() > 0:
+            wait_timeout = 30000 if is_video else 10000
+            try:
+                await next_btn.first.wait_for(state="visible", timeout=wait_timeout)
                 log.info("Clicking Next (step %d)...", step + 1)
                 await next_btn.first.click()
-                await page.wait_for_timeout(2000)
+                await page.wait_for_timeout(3000 if is_video else 2000)
+            except Exception:
+                log.warning("Next button not found at step %d — may have fewer steps", step + 1)
+                # For videos, also check for "Continue" button (Reel flow variant)
+                if is_video:
+                    try:
+                        cont_btn = page.get_by_role("button", name="Continue")
+                        if await cont_btn.count() > 0:
+                            log.info("Clicking Continue (video alt) at step %d", step + 1)
+                            await cont_btn.first.click()
+                            await page.wait_for_timeout(2000)
+                    except Exception:
+                        pass
 
         # 6. Type caption
         log.info("Typing caption (%d chars)...", len(caption))
@@ -304,9 +338,10 @@ async def _post_content(context: BrowserContext, media_path: Path, caption: str)
                 log.error("Could not find Share button")
                 return ""
 
-        # Wait for the post to be created (spinner + confirmation)
-        log.info("Waiting for post to be created...")
-        await page.wait_for_timeout(12000)
+        # Wait for the post to be created (videos need longer for server processing)
+        share_wait = 25000 if is_video else 12000
+        log.info("Waiting %ds for %s post creation...", share_wait // 1000, media_type)
+        await page.wait_for_timeout(share_wait)
 
         # 8. Fallback: extract post ID from profile if not intercepted
         if not post_id:
@@ -363,13 +398,13 @@ async def post_to_instagram(item: dict) -> str:
 
     if not caption:
         log.error("No generated caption — cannot post")
-        return ""
+        return "SKIP"
 
     # Download media
     media_path = _download_media(media_url, media_type)
     if not media_path:
-        log.error("Media download failed — cannot post")
-        return ""
+        log.error("Media download failed (URL may be expired) — cannot post")
+        return "SKIP"
 
     # Process images for proper Instagram sizing
     if media_type in ("image", "carousel"):
@@ -380,7 +415,7 @@ async def post_to_instagram(item: dict) -> str:
         async with async_playwright() as pw:
             context = await _create_context(pw)
 
-            post_url = await _post_content(context, media_path, caption)
+            post_url = await _post_content(context, media_path, caption, media_type)
 
             # Save updated browser state
             await _save_state(context)

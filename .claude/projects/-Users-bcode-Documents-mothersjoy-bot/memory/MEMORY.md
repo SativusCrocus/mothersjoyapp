@@ -1,0 +1,1 @@
+- [mothersjoy-bot-architecture](project_mothersjoy_bot.md) — Bot architecture, components, secrets, and brand voice guidelines

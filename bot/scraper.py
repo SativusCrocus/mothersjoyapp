@@ -63,7 +63,11 @@ def _passes_hard_filters(post: dict) -> bool:
         log.debug("Blocked: %s (%s)", post.get("source_url"), owner)
         return False
 
-    if len(caption) < config.MIN_CAPTION_LENGTH:
+    # Videos often have short captions because the content is visual/audio —
+    # allow videos with any caption, only enforce minimum for images
+    is_video = post.get("media_type") == "video"
+    min_len = 0 if is_video else config.MIN_CAPTION_LENGTH
+    if len(caption) < min_len:
         log.debug("Caption too short (%d chars): %s", len(caption), post.get("source_url"))
         return False
 

@@ -93,6 +93,13 @@ NICHES = [
     "parenting community",
     "new mum advice",
     "toddler parenting",
+    # Diverse parenting communities
+    "black mums UK",
+    "south asian parenting",
+    "multicultural family",
+    "mixed race family UK",
+    "diverse parenting",
+    "parenting of colour",
 ]
 
 # ── Engagement & quality filters ─────────────────────────────────────────────
@@ -100,13 +107,13 @@ NICHES = [
 MIN_ENGAGEMENT = 0.02          # likes / followers ratio
 MAX_AGE_DAYS = 7               # ignore posts older than this
 SEARCH_PER_NICHE = 10          # max posts to fetch per niche term
-MIN_CAPTION_LENGTH = 50        # skip stubs / low-effort captions
+MIN_CAPTION_LENGTH = 20        # lowered to not exclude video posts (content is visual)
 SCRAPE_HOURS_BACK = 720        # only scrape posts this recent (30 days)
 
 # ── Queue behaviour ──────────────────────────────────────────────────────────
 
 QUEUE_MIN_SIZE = 10            # refill threshold
-QUEUE_ITEM_MAX_AGE_HOURS = 24  # items older than this are stale
+QUEUE_ITEM_MAX_AGE_HOURS = 48  # items older than this are stale (was 24h — too aggressive)
 POST_INTERVAL_MINUTES = 15     # minimum gap between posts
 
 # ── Blocked lists ────────────────────────────────────────────────────────────

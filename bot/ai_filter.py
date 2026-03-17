@@ -39,6 +39,7 @@ PASS criteria (score ≥ 6):
 - Gentle/respectful parenting philosophy
 - Postnatal wellness, mum mental health
 - UK-relevant content preferred but not required
+- Video content is equally valuable as image content — do NOT penalise videos
 
 FAIL criteria (any = automatic fail):
 - Advertisements, product promotions, discount codes
@@ -48,6 +49,15 @@ FAIL criteria (any = automatic fail):
 - Sexually explicit or violent content
 - Low effort / engagement bait / rage bait
 - Content targeting older children (teens+)
+
+IMPORTANT — Diversity & Inclusion:
+- Evaluate ONLY on content quality and parenting value
+- Do NOT consider or factor in the creator's race, ethnicity, skin colour, nationality, \
+religion, disability, body type, or appearance
+- Parenting wisdom comes from ALL communities — score diverse voices equally
+- Content from creators of any background must be judged purely on warmth, helpfulness, \
+and fit with our community values
+- Do NOT favour or penalise any demographic group
 
 Post to evaluate:
 ---
@@ -127,6 +137,8 @@ RULES:
 - Include 💜 at least once — it's our signature
 - Do NOT copy the original caption — rewrite entirely in our voice
 - Hashtags must include #mothersjoy
+- Use inclusive language that welcomes parents of ALL backgrounds, races, and cultures
+- Never assume the audience is any particular ethnicity — our community is beautifully diverse
 
 Original post:
 ---
