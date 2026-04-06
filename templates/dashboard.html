@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Mother's Joy 💜 Dashboard</title>
+  <title>Mother's Joy Dashboard</title>
   <style>
     :root {
       --bg: #0f0f13;
@@ -18,6 +18,7 @@
       --orange: #f39c12;
       --red: #e74c3c;
       --blue: #3498db;
+      --pink: #e91e63;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -54,50 +55,53 @@
     }
     .status-dot.active { background: var(--green); }
     .status-dot.idle { background: var(--text-dim); }
+    .status-dot.blocked { background: var(--red); }
 
     /* ── Stats Bar ──────────────────────────── */
     .stats {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 1rem;
-      padding: 1.5rem 2rem;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.8rem;
+      padding: 1.2rem 2rem;
     }
     .stat-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 1rem 1.2rem;
+      padding: 0.8rem 1rem;
     }
     .stat-card .label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
       color: var(--text-dim);
-      margin-bottom: 0.3rem;
+      margin-bottom: 0.2rem;
     }
     .stat-card .value {
-      font-size: 1.6rem;
+      font-size: 1.4rem;
       font-weight: 700;
     }
     .stat-card .value.purple { color: var(--purple); }
     .stat-card .value.green { color: var(--green); }
     .stat-card .value.blue { color: var(--blue); }
     .stat-card .value.orange { color: var(--orange); }
+    .stat-card .value.pink { color: var(--pink); }
+    .stat-card .sub { font-size: 0.7rem; color: var(--text-dim); margin-top: 2px; }
 
     /* ── Controls ────────────────────────────── */
     .controls {
       padding: 0 2rem 1rem;
       display: flex;
-      gap: 0.8rem;
+      gap: 0.6rem;
       flex-wrap: wrap;
     }
     .btn {
-      padding: 0.6rem 1.4rem;
+      padding: 0.5rem 1.2rem;
       border: 1px solid var(--border);
       border-radius: 8px;
       background: var(--surface);
       color: var(--text);
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       cursor: pointer;
       transition: all 0.2s;
     }
@@ -106,6 +110,7 @@
     .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
     .btn.primary:hover { background: var(--purple-dim); }
     .btn.danger { border-color: var(--red); color: var(--red); }
+    .btn.pink { border-color: var(--pink); color: var(--pink); }
 
     /* ── Tabs ────────────────────────────────── */
     .tabs {
@@ -115,8 +120,8 @@
       border-bottom: 1px solid var(--border);
     }
     .tab {
-      padding: 0.7rem 1.4rem;
-      font-size: 0.85rem;
+      padding: 0.7rem 1.2rem;
+      font-size: 0.82rem;
       color: var(--text-dim);
       cursor: pointer;
       border-bottom: 2px solid transparent;
@@ -131,7 +136,7 @@
     .tab-panel.active { display: block; }
 
     /* ── Queue cards ─────────────────────────── */
-    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -155,7 +160,7 @@
       margin-bottom: 0.5rem;
     }
     .card-caption {
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       line-height: 1.5;
       color: var(--text);
       max-height: 120px;
@@ -189,6 +194,34 @@
     .history-item a:hover { text-decoration: underline; }
     .history-time { color: var(--text-dim); font-size: 0.75rem; }
 
+    /* ── Engagement stats ────────────────────── */
+    .eng-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+    .eng-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.2rem;
+    }
+    .eng-card .eng-label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 0.3rem;
+    }
+    .eng-card .eng-value {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+    .eng-card .eng-total {
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      margin-top: 0.2rem;
+    }
+
     /* ── Logs ────────────────────────────────── */
     .log-box {
       background: var(--surface);
@@ -211,38 +244,86 @@
       font-size: 0.9rem;
     }
 
-    /* ── Countdown ───────────────────────────── */
     .countdown {
       font-size: 0.75rem;
       color: var(--text-dim);
     }
+
+    /* ── Toast notifications ───────────────── */
+    .toast-container {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .toast {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.7rem 1.2rem;
+      font-size: 0.82rem;
+      color: var(--text);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      animation: toast-in 0.3s ease;
+      max-width: 340px;
+    }
+    .toast.success { border-color: var(--green); }
+    .toast.error { border-color: var(--red); color: var(--red); }
+    .toast.warning { border-color: var(--orange); color: var(--orange); }
+    @keyframes toast-in {
+      from { opacity: 0; transform: translateX(20px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .badge.green { background: rgba(46,204,113,0.15); color: var(--green); }
+    .badge.orange { background: rgba(243,156,18,0.15); color: var(--orange); }
+    .badge.red { background: rgba(231,76,60,0.15); color: var(--red); }
   </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>🌱 Mother's <span>Joy</span> 💜</h1>
+  <h1>Mother's <span>Joy</span></h1>
   <div class="header-status">
     <span class="countdown" id="countdown">Next refresh: 8s</span>
+    <span id="scheduleBadge" class="badge green">SCHEDULE</span>
     <span><span class="status-dot" id="statusDot"></span><span id="statusText">Loading...</span></span>
   </div>
 </div>
 
 <div class="stats" id="stats">
-  <div class="stat-card"><div class="label">Queue depth</div><div class="value purple" id="statQueue">—</div></div>
-  <div class="stat-card"><div class="label">Total posted</div><div class="value green" id="statPosted">—</div></div>
-  <div class="stat-card"><div class="label">Bot status</div><div class="value blue" id="statStatus">—</div></div>
-  <div class="stat-card"><div class="label">Next post</div><div class="value orange" id="statCountdown">—</div></div>
+  <div class="stat-card"><div class="label">Queue</div><div class="value purple" id="statQueue">—</div></div>
+  <div class="stat-card"><div class="label">Posted</div><div class="value green" id="statPosted">—</div><div class="sub" id="statPostsToday"></div></div>
+  <div class="stat-card"><div class="label">Status</div><div class="value blue" id="statStatus">—</div></div>
+  <div class="stat-card"><div class="label">Next post</div><div class="value orange" id="statCountdown">—</div><div class="sub" id="statNextSlot"></div></div>
+  <div class="stat-card"><div class="label">Likes today</div><div class="value pink" id="statLikes">—</div></div>
+  <div class="stat-card"><div class="label">Comments</div><div class="value pink" id="statComments">—</div></div>
+  <div class="stat-card"><div class="label">Follows</div><div class="value pink" id="statFollows">—</div></div>
+  <div class="stat-card"><div class="label">Replies</div><div class="value pink" id="statReplies">—</div></div>
 </div>
 
 <div class="controls">
-  <button class="btn primary" onclick="doScrape()" id="btnScrape">🔍 Scrape Now</button>
-  <button class="btn" onclick="doPost()" id="btnPost">📤 Post One</button>
-  <button class="btn" onclick="toggleAutopilot()" id="btnAutopilot">🤖 Start Autopilot</button>
+  <button class="btn primary" onclick="doScrape()" id="btnScrape">Scrape Now</button>
+  <button class="btn" onclick="doPost()" id="btnPost">Post One</button>
+  <button class="btn pink" onclick="doEngage()" id="btnEngage">Engage</button>
+  <button class="btn" onclick="toggleAutopilot()" id="btnAutopilot">Start Autopilot</button>
 </div>
 
 <div class="tabs">
   <div class="tab active" data-tab="queue">Queue</div>
+  <div class="tab" data-tab="engagement">Engagement</div>
+  <div class="tab" data-tab="health">Health</div>
   <div class="tab" data-tab="history">History</div>
   <div class="tab" data-tab="logs">Logs</div>
 </div>
@@ -250,6 +331,28 @@
 <div class="content">
   <div class="tab-panel active" id="panel-queue">
     <div class="cards" id="queueCards"></div>
+  </div>
+  <div class="tab-panel" id="panel-engagement">
+    <div class="eng-grid" id="engGrid">
+      <div class="eng-card"><div class="eng-label">Likes Today</div><div class="eng-value pink" id="engLikes">0</div><div class="eng-total" id="engLikesTotal">0 total</div></div>
+      <div class="eng-card"><div class="eng-label">Comments Today</div><div class="eng-value pink" id="engComments">0</div><div class="eng-total" id="engCommentsTotal">0 total</div></div>
+      <div class="eng-card"><div class="eng-label">Follows Today</div><div class="eng-value pink" id="engFollows">0</div><div class="eng-total" id="engFollowsTotal">0 total</div></div>
+      <div class="eng-card"><div class="eng-label">Replies Today</div><div class="eng-value pink" id="engRepliesDay">0</div><div class="eng-total" id="engRepliesTotal">0 total</div></div>
+      <div class="eng-card"><div class="eng-label">Rolling Like Window</div><div class="eng-value" id="engLikeCap">—</div><div class="eng-total">24h rolling window</div></div>
+      <div class="eng-card"><div class="eng-label">Status</div><div class="eng-value" id="engStatus">—</div><div class="eng-total" id="engStatusSub"></div></div>
+    </div>
+  </div>
+  <div class="tab-panel" id="panel-health">
+    <div class="eng-grid" id="healthGrid">
+      <div class="eng-card"><div class="eng-label">System Status</div><div class="eng-value" id="healthOverall">--</div><div class="eng-total" id="healthUptime"></div></div>
+      <div class="eng-card"><div class="eng-label">Disk Space</div><div class="eng-value" id="healthDisk">--</div><div class="eng-total" id="healthDiskSub"></div></div>
+      <div class="eng-card"><div class="eng-label">Rate Limiter</div><div class="eng-value" id="healthPacing">--</div><div class="eng-total" id="healthPacingSub"></div></div>
+      <div class="eng-card"><div class="eng-label">Supervisor Wait</div><div class="eng-value" id="healthWait">--</div><div class="eng-total" id="healthWaitSub"></div></div>
+    </div>
+    <h3 style="margin:1.5rem 0 0.8rem;font-size:0.9rem;color:var(--text-dim)">Subsystems</h3>
+    <div id="healthSubsystems" class="eng-grid"></div>
+    <h3 style="margin:1.5rem 0 0.8rem;font-size:0.9rem;color:var(--text-dim)">Active Issues</h3>
+    <div id="healthIssues" class="log-box" style="max-height:250px">No issues detected</div>
   </div>
   <div class="tab-panel" id="panel-history">
     <ul class="history-list" id="historyList"></ul>
@@ -259,13 +362,15 @@
   </div>
 </div>
 
+<div class="toast-container" id="toastContainer"></div>
+
 <script>
   const API = '';
   let autopilotOn = false;
   let refreshTimer = 8;
   let refreshInterval;
   let logs = [];
-  let nextPostIn = 0; // seconds until next autopilot post
+  let nextPostIn = 0;
 
   // ── Tabs ───────────────────────────────────
   document.querySelectorAll('.tab').forEach(tab => {
@@ -281,28 +386,73 @@
   async function fetchState() {
     try {
       const res = await fetch(API + '/api/state');
-      const data = await res.json();
+      const d = await res.json();
 
-      document.getElementById('statQueue').textContent = data.queue_size ?? '—';
-      document.getElementById('statPosted').textContent = data.posted_count ?? '—';
-      document.getElementById('statStatus').textContent = data.status ?? 'idle';
+      document.getElementById('statQueue').textContent = d.queue_size ?? '—';
+      document.getElementById('statPosted').textContent = d.posted_count ?? '—';
+      document.getElementById('statStatus').textContent = d.status ?? 'idle';
+      document.getElementById('statPostsToday').textContent = d.posts_today ? d.posts_today + ' today' : '';
 
-      // Countdown timer
-      autopilotOn = data.autopilot;
-      nextPostIn = data.next_post_in || 0;
-      updateCountdown();
+      // Engagement stats in header
+      document.getElementById('statLikes').textContent = d.likes_today ?? 0;
+      document.getElementById('statComments').textContent = d.comments_today ?? 0;
+      document.getElementById('statFollows').textContent = d.follows_today ?? 0;
+      document.getElementById('statReplies').textContent = d.replies_today ?? 0;
 
-      document.getElementById('btnAutopilot').textContent = autopilotOn ? '🤖 Stop Autopilot' : '🤖 Start Autopilot';
+      // Engagement tab
+      document.getElementById('engLikes').textContent = d.likes_today ?? 0;
+      document.getElementById('engComments').textContent = d.comments_today ?? 0;
+      document.getElementById('engFollows').textContent = d.follows_today ?? 0;
+      document.getElementById('engRepliesDay').textContent = d.replies_today ?? 0;
+      document.getElementById('engLikesTotal').textContent = (d.total_likes ?? 0) + ' total';
+      document.getElementById('engCommentsTotal').textContent = (d.total_comments ?? 0) + ' total';
+      document.getElementById('engFollowsTotal').textContent = (d.total_follows ?? 0) + ' total';
+      document.getElementById('engRepliesTotal').textContent = (d.total_replies ?? 0) + ' total';
+      document.getElementById('engLikeCap').textContent = (d.likes_today ?? 0) + '/150';
+
+      if (d.action_blocked) {
+        document.getElementById('engStatus').textContent = 'BLOCKED';
+        document.getElementById('engStatus').style.color = 'var(--red)';
+        document.getElementById('engStatusSub').textContent = Math.ceil((d.action_block_remaining || 0) / 60) + 'm cooldown';
+      } else if (d.engaging) {
+        document.getElementById('engStatus').textContent = 'ACTIVE';
+        document.getElementById('engStatus').style.color = 'var(--green)';
+        document.getElementById('engStatusSub').textContent = 'session running';
+      } else {
+        document.getElementById('engStatus').textContent = d.engagement_enabled ? 'READY' : 'OFF';
+        document.getElementById('engStatus').style.color = d.engagement_enabled ? 'var(--text)' : 'var(--text-dim)';
+        document.getElementById('engStatusSub').textContent = '';
+      }
+
+      // Countdown
+      autopilotOn = d.autopilot;
+      nextPostIn = d.next_post_in || 0;
+      updateCountdown(d);
+
+      // Schedule badge
+      const badge = document.getElementById('scheduleBadge');
+      if (d.schedule_enabled) {
+        badge.textContent = 'SCHEDULE';
+        badge.className = 'badge green';
+      } else {
+        badge.textContent = 'FIXED';
+        badge.className = 'badge orange';
+      }
+
+      document.getElementById('btnAutopilot').textContent = autopilotOn ? 'Stop Autopilot' : 'Start Autopilot';
       document.getElementById('btnAutopilot').className = autopilotOn ? 'btn danger' : 'btn';
 
       const dot = document.getElementById('statusDot');
-      dot.className = 'status-dot ' + (data.status === 'busy' ? 'active' : 'idle');
-      document.getElementById('statusText').textContent = data.status === 'busy' ? 'Working...' : 'Ready';
+      if (d.action_blocked) {
+        dot.className = 'status-dot blocked';
+      } else {
+        dot.className = 'status-dot ' + (d.busy ? 'active' : 'idle');
+      }
+      document.getElementById('statusText').textContent = d.busy ? `${d.status}...` : 'Ready';
 
-      // Enable/disable buttons
-      const busy = data.status === 'busy';
-      document.getElementById('btnScrape').disabled = busy;
-      document.getElementById('btnPost').disabled = busy;
+      document.getElementById('btnScrape').disabled = !!d.scraping;
+      document.getElementById('btnPost').disabled = !!d.posting;
+      document.getElementById('btnEngage').disabled = !!d.engaging;
     } catch (e) {
       console.error('State fetch failed:', e);
     }
@@ -315,7 +465,7 @@
       const container = document.getElementById('queueCards');
 
       if (!items.length) {
-        container.innerHTML = '<div class="empty-state">Queue is empty — hit Scrape to discover content 🌱</div>';
+        container.innerHTML = '<div class="empty-state">Queue is empty — hit Scrape to discover content</div>';
         return;
       }
 
@@ -325,7 +475,7 @@
           <div class="card-body">
             <div class="card-meta">
               <span>@${escHtml(item.account || '?')}</span>
-              <span>❤️ ${item.likes ?? 0} ${item.ai_score ? `<span class="card-score">${item.ai_score}/10</span>` : ''}</span>
+              <span>${item.likes ?? 0} ${item.ai_score ? `<span class="card-score">${item.ai_score}/10</span>` : ''}</span>
             </div>
             <div class="card-caption">${escHtml((item.generated_caption || item.caption || '').slice(0, 300))}</div>
           </div>
@@ -343,7 +493,7 @@
       const container = document.getElementById('historyList');
 
       if (!items.length) {
-        container.innerHTML = '<div class="empty-state">No posts yet — the journey begins 💜</div>';
+        container.innerHTML = '<div class="empty-state">No posts yet — the journey begins</div>';
         return;
       }
 
@@ -360,6 +510,16 @@
     }
   }
 
+  // ── Toast ──────────────────────────────────
+  function showToast(msg, type = 'success') {
+    const container = document.getElementById('toastContainer');
+    const el = document.createElement('div');
+    el.className = 'toast ' + type;
+    el.textContent = msg;
+    container.appendChild(el);
+    setTimeout(() => el.remove(), 4000);
+  }
+
   // ── Actions ────────────────────────────────
   async function doScrape() {
     addLog('Starting scrape...');
@@ -367,8 +527,10 @@
       const res = await fetch(API + '/api/scrape', { method: 'POST' });
       const data = await res.json();
       addLog(data.message || 'Scrape triggered');
+      showToast(data.message || 'Scrape triggered', data.ok ? 'success' : 'warning');
     } catch (e) {
       addLog('Scrape error: ' + e.message);
+      showToast('Scrape error: ' + e.message, 'error');
     }
     refresh();
   }
@@ -379,8 +541,24 @@
       const res = await fetch(API + '/api/post', { method: 'POST' });
       const data = await res.json();
       addLog(data.message || 'Post triggered');
+      showToast(data.message || 'Post triggered', data.ok ? 'success' : 'warning');
     } catch (e) {
       addLog('Post error: ' + e.message);
+      showToast('Post error: ' + e.message, 'error');
+    }
+    refresh();
+  }
+
+  async function doEngage() {
+    addLog('Starting engagement session...');
+    try {
+      const res = await fetch(API + '/api/engage', { method: 'POST' });
+      const data = await res.json();
+      addLog(data.message || 'Engagement triggered');
+      showToast(data.message || 'Engagement triggered', data.ok ? 'success' : 'warning');
+    } catch (e) {
+      addLog('Engagement error: ' + e.message);
+      showToast('Engagement error: ' + e.message, 'error');
     }
     refresh();
   }
@@ -396,29 +574,44 @@
       });
       const data = await res.json();
       addLog(data.message || `Autopilot ${action}`);
+      showToast(data.message || `Autopilot ${action}`, data.ok ? 'success' : 'warning');
     } catch (e) {
       addLog('Autopilot error: ' + e.message);
+      showToast('Autopilot error: ' + e.message, 'error');
     }
     refresh();
   }
 
   // ── Countdown ──────────────────────────────
-  function updateCountdown() {
+  function updateCountdown(d) {
     const el = document.getElementById('statCountdown');
+    const sub = document.getElementById('statNextSlot');
     if (!autopilotOn) {
       el.textContent = 'OFF';
       el.className = 'value';
+      sub.textContent = '';
       return;
     }
     if (nextPostIn <= 0) {
       el.textContent = 'NOW';
       el.className = 'value green';
+      sub.textContent = '';
       return;
     }
     const m = Math.floor(nextPostIn / 60);
     const s = nextPostIn % 60;
     el.textContent = `${m}:${String(s).padStart(2, '0')}`;
     el.className = 'value orange';
+
+    // Show next scheduled time
+    if (d && d.next_slot_time) {
+      try {
+        const t = new Date(d.next_slot_time);
+        sub.textContent = t.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+      } catch(e) { sub.textContent = ''; }
+    } else {
+      sub.textContent = '';
+    }
   }
 
   // ── Helpers ────────────────────────────────
@@ -446,9 +639,77 @@
     box.scrollTop = box.scrollHeight;
   }
 
+  // ── Health data ────────────────────────────
+  async function fetchHealth() {
+    try {
+      const res = await fetch(API + '/api/health/detailed');
+      const d = await res.json();
+
+      // Overall status
+      const overall = document.getElementById('healthOverall');
+      const hasIssues = d.supervisor && d.supervisor.issues && d.supervisor.issues.length > 0;
+      if (hasIssues && d.supervisor.issues.some(i => !i.can_continue)) {
+        overall.textContent = 'DEGRADED';
+        overall.style.color = 'var(--red)';
+      } else if (hasIssues) {
+        overall.textContent = 'WARNING';
+        overall.style.color = 'var(--orange)';
+      } else {
+        overall.textContent = 'HEALTHY';
+        overall.style.color = 'var(--green)';
+      }
+      document.getElementById('healthUptime').textContent = 'Uptime: ' + Math.floor((d.uptime || 0) / 3600) + 'h ' + Math.floor(((d.uptime || 0) % 3600) / 60) + 'm';
+
+      // Disk
+      const disk = document.getElementById('healthDisk');
+      if (d.disk && d.disk.free_gb >= 0) {
+        disk.textContent = d.disk.free_gb + ' GB';
+        disk.style.color = d.disk.critical ? 'var(--red)' : d.disk.free_gb < 2 ? 'var(--orange)' : 'var(--green)';
+        document.getElementById('healthDiskSub').textContent = d.disk.total_gb + ' GB total';
+      }
+
+      // Rate limiter
+      if (d.rate_limiter) {
+        const rl = d.rate_limiter;
+        document.getElementById('healthPacing').textContent = rl.pacing_multiplier + 'x';
+        document.getElementById('healthPacing').style.color = rl.pacing_multiplier > 2 ? 'var(--red)' : rl.pacing_multiplier > 1.2 ? 'var(--orange)' : 'var(--green)';
+        document.getElementById('healthPacingSub').textContent = rl.action_blocked ? 'BLOCKED ' + Math.ceil(rl.action_block_remaining / 60) + 'm' : rl.consecutive_blocks + ' blocks';
+      }
+
+      // Supervisor wait
+      if (d.supervisor) {
+        const wait = d.supervisor.recommended_wait || 0;
+        document.getElementById('healthWait').textContent = wait > 0 ? Math.ceil(wait / 60) + 'm' : '0';
+        document.getElementById('healthWait').style.color = wait > 300 ? 'var(--orange)' : 'var(--green)';
+        document.getElementById('healthWaitSub').textContent = wait > 0 ? 'recommended pause' : 'no delays';
+      }
+
+      // Subsystems
+      const subEl = document.getElementById('healthSubsystems');
+      if (d.subsystems && Object.keys(d.subsystems).length > 0) {
+        subEl.innerHTML = Object.entries(d.subsystems).map(([name, s]) => {
+          const color = s.status === 'healthy' ? 'var(--green)' : s.status === 'degraded' ? 'var(--orange)' : 'var(--red)';
+          return `<div class="eng-card"><div class="eng-label">${escHtml(name)}</div><div class="eng-value" style="color:${color};font-size:1.2rem">${s.status.toUpperCase()}</div><div class="eng-total">${s.consecutive_failures} failures${s.last_error ? ' | ' + escHtml(s.last_error.slice(0, 60)) : ''}</div></div>`;
+        }).join('');
+      } else {
+        subEl.innerHTML = '<div class="empty-state">No subsystem data yet</div>';
+      }
+
+      // Issues
+      const issueEl = document.getElementById('healthIssues');
+      if (d.supervisor && d.supervisor.issues && d.supervisor.issues.length > 0) {
+        issueEl.textContent = d.supervisor.issues.map(i => `[${i.category}] ${i.message} (action: ${i.action}, wait: ${i.wait}s)`).join('\n');
+      } else {
+        issueEl.textContent = 'No issues detected';
+      }
+    } catch (e) {
+      console.error('Health fetch failed:', e);
+    }
+  }
+
   // ── Refresh loop ───────────────────────────
   async function refresh() {
-    await Promise.all([fetchState(), fetchQueue(), fetchHistory()]);
+    await Promise.all([fetchState(), fetchQueue(), fetchHistory(), fetchHealth()]);
     refreshTimer = 8;
   }
 
@@ -458,10 +719,9 @@
       refreshTimer--;
       document.getElementById('countdown').textContent = `Next refresh: ${refreshTimer}s`;
 
-      // Tick down autopilot countdown
       if (autopilotOn && nextPostIn > 0) {
         nextPostIn--;
-        updateCountdown();
+        updateCountdown(null);
       }
 
       if (refreshTimer <= 0) {
