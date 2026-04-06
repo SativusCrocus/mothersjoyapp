@@ -308,16 +308,22 @@ class IntakeAgent:
                 log.info("Curator agent rejected %s (score=%d): %s", source_url, score, reason)
                 return CandidateDecision(False, post, score=score, reason=reason)
 
-            caption = self.captioner.compose(post)
+            from bot.ai_filter import generate_post
+            caption_result = generate_post(post)
+            caption = caption_result.get("caption", "")
             if not caption:
-                log.warning("Caption agent failed for %s", source_url)
-                return CandidateDecision(
-                    False,
-                    post,
-                    score=score,
-                    reason=reason,
-                    error="caption_generation_failed",
-                )
+                # Last resort: use original caption so item isn't lost
+                caption = (post.get("caption", "") or "").strip()
+                if not caption:
+                    log.warning("Caption agent failed (no fallback) for %s", source_url)
+                    return CandidateDecision(
+                        False,
+                        post,
+                        score=score,
+                        reason=reason,
+                        error="caption_generation_failed",
+                    )
+                log.info("Using original caption as fallback for %s", source_url)
 
             prepared = dict(post)
             prepared["generated_caption"] = caption
@@ -476,14 +482,17 @@ class MotherJoyAgentTeam:
                 return report
 
             if post_url == "RESCRAPE":
-                # Media expired — release back to queue for re-scrape, don't dead-letter
-                log.warning("Media expired for %s — releasing for rescrape", source_url)
+                # Media expired — release back to queue with delay so fresh items get posted first
+                log.warning("Media expired for %s — releasing for rescrape (1hr delay)", source_url)
+                from datetime import timedelta
+                next_retry = (datetime.now(timezone.utc) + timedelta(hours=1)).isoformat()
                 queue_store.release_claim(
                     token,
                     updates={
                         "retry_count": retries + 1,
                         "last_error": "media_expired_rescrape",
                         "media_url": "",  # clear expired URL
+                        "next_retry_after": next_retry,
                     },
                 )
                 report.message = "rescrape_needed"

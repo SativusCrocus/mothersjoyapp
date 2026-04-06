@@ -307,13 +307,26 @@ def _migrate_queue_item(conn: sqlite3.Connection, item: dict):
 # ── Queue operations ─────────────────────────────────────────────────────────
 
 def queue_enqueue(item: dict) -> bool:
-    """Add an item to the queue. Returns True if added."""
+    """Add an item to the queue. Caches media at enqueue time. Returns True if added."""
     conn = get_db()
     source_url = item.get("source_url", "")
     if not source_url:
         return False
     if already_posted(source_url):
         return False
+
+    # Cache media at enqueue time so CDN URLs don't expire before posting
+    cached_path = item.get("cached_media_path", "")
+    media_url = item.get("media_url", "")
+    if media_url and not cached_path:
+        try:
+            from bot.media_cache import cache_media
+            result = cache_media(source_url, media_url, item.get("media_type", "image"))
+            if result:
+                cached_path = str(result)
+                log.debug("Media cached at enqueue: %s", cached_path)
+        except Exception as exc:
+            log.debug("Media cache at enqueue failed: %s", exc)
 
     known_keys = {
         "source_url", "media_url", "cached_media_path", "media_type", "caption",
@@ -329,7 +342,7 @@ def queue_enqueue(item: dict) -> bool:
                 ai_score, ai_reason, queued_at, discovery_group,
                 original_caption, creator_username, like_count, extra_json)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-            (source_url, item.get("media_url", ""), item.get("cached_media_path", ""),
+            (source_url, media_url, cached_path,
              item.get("media_type", "image"), item.get("caption", ""),
              item.get("ai_score", 0), item.get("ai_reason", ""), _utcnow(),
              item.get("discovery_group", ""), item.get("original_caption", ""),

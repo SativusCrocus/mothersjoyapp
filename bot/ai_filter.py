@@ -38,7 +38,8 @@ _NEGATIVE_KEYWORDS = [
 
 def _local_heuristic_score(content: dict) -> tuple[bool, int, str]:
     """Keyword-based scoring when all AI providers are down.
-    Conservative: better to miss a good post than approve a bad one."""
+    Trust discovery: items already came from parenting search terms/niches.
+    Reject only clearly bad content (negative keywords). Pass everything else."""
     caption = (content.get("caption", "") or "").lower()
 
     neg_count = sum(1 for kw in _NEGATIVE_KEYWORDS if kw in caption)
@@ -47,9 +48,10 @@ def _local_heuristic_score(content: dict) -> tuple[bool, int, str]:
 
     pos_count = sum(1 for kw in _POSITIVE_KEYWORDS if kw in caption)
     if pos_count >= 2:
-        return True, 6, f"local_heuristic: {pos_count} positive parenting signals"
+        return True, 7, f"local_heuristic: {pos_count} positive parenting signals"
 
-    return False, 4, "local_heuristic: insufficient positive signals (conservative)"
+    # Trust discovery process — these items came from parenting niches
+    return True, 6, "local_heuristic: no negatives, trusting discovery source"
 
 
 # Primary: Gemini
@@ -357,12 +359,22 @@ def generate_post(content: dict) -> dict:
         return {"caption": caption}
 
     except AIUnavailable:
-        log.warning("All AI providers down — deferring caption for %s", content.get("source_url", ""))
+        log.warning("All AI providers down — using original caption for %s", content.get("source_url", ""))
         try:
             from bot.health import get_registry
             get_registry().report_failure("ai_filter", "all_providers_down")
         except Exception:
             pass
+        # Use original caption as fallback so item still gets queued
+        original = (content.get("caption", "") or "").strip()
+        if original:
+            fallback = original
+            # Ensure brand link and hashtag
+            if config.BRAND_LINK not in fallback:
+                fallback += f"\n\n🌿 More support → {config.BRAND_LINK}"
+            if "#mothersjoy" not in fallback.lower():
+                fallback += " #mothersjoy"
+            return {"caption": fallback, "ai_deferred": True}
         return {"caption": "", "ai_deferred": True}
 
     except Exception as exc:
